@@ -2,7 +2,9 @@
 #include <SoapySDR/Formats.hpp>
 #include <cstring>
 #include <cinttypes>
+#include <fstream>
 #include <iostream>
+#include <sstream>
 #include <vector>
 #include <string>
 #include <sidekiq_types.h>
@@ -126,6 +128,96 @@ bool equalsIgnoreCase(const std::string& a, const std::string& b)
             return std::tolower(static_cast<unsigned char>(lhs)) ==
                    std::tolower(static_cast<unsigned char>(rhs));
          });
+}
+
+static const char *KERNEL_1PPS_SOURCE_PATH = "/sys/kernel/epiq-axi-timing/pps/source";
+#define SOURCE_1PPS_UNAVAILABLE    "1pps_source_unavailable"
+#define SOURCE_1PPS_EXTERNAL       "1pps_source_external"
+#define SOURCE_1PPS_INTERNAL       "1pps_source_internal"
+
+bool readKernel1PpsSource(skiq_1pps_source_t &source)
+{
+    std::ifstream input(KERNEL_1PPS_SOURCE_PATH);
+    if (!input.is_open())
+    {
+        return false;
+    }
+
+    std::string value;
+    std::getline(input, value);
+    if (!input.good() && !input.eof())
+    {
+        return false;
+    }
+
+    std::istringstream tokens(value);
+    std::string token;
+    std::string active_source;
+
+    while (tokens >> token)
+    {
+        if (token.size() >= 2 && token.front() == '[' && token.back() == ']')
+        {
+            active_source = token.substr(1, token.size() - 2);
+            break;
+        }
+    }
+
+    if (active_source.empty())
+    {
+        SoapySDR_logf(SOAPY_SDR_WARNING,
+                      "no active kernel 1pps source found in '%s'",
+                      value.c_str());
+        return false;
+    }
+
+    if (active_source == "internal-gps")
+    {
+        source = skiq_1pps_source_host;
+        return true;
+    }
+
+    if (active_source == "external")
+    {
+        source = skiq_1pps_source_external;
+        return true;
+    }
+
+    if (active_source != "unavailable")
+    {
+        SoapySDR_logf(SOAPY_SDR_WARNING,
+                      "unrecognized active kernel 1pps source '%s' from '%s'",
+                      active_source.c_str(), value.c_str());
+    }
+    return false;
+}
+
+bool writeKernel1PpsSource(const skiq_1pps_source_t source)
+{
+    const char *value = nullptr;
+
+    switch (source)
+    {
+        case skiq_1pps_source_external:
+            value = "external";
+            break;
+
+        case skiq_1pps_source_host:
+            value = "internal-gps";
+            break;
+
+        default:
+            return false;
+    }
+
+    std::ofstream output(KERNEL_1PPS_SOURCE_PATH);
+    if (!output.is_open())
+    {
+        return false;
+    }
+
+    output << value;
+    return output.good();
 }
 
 skiq_rx_hdl_t SoapySidekiq::getRxHandle(const size_t channel) const
@@ -1903,9 +1995,6 @@ std::string SoapySidekiq::readSetting(const std::string &key) const
 /*******************************************************************
  * Time API
  ******************************************************************/
-#define SOURCE_1PPS_UNAVAILABLE    "1pps_source_unavailable"
-#define SOURCE_1PPS_EXTERNAL       "1pps_source_external"
-#define SOURCE_1PPS_INTERNAL       "1pps_source_internal"
 
 std::vector<std::string> SoapySidekiq::listTimeSources(void) const
 {
@@ -1922,17 +2011,26 @@ std::vector<std::string> SoapySidekiq::listTimeSources(void) const
 std::string SoapySidekiq::getTimeSource(void) const
 {
     int status = 0;
-    skiq_1pps_source_t pps_source;
+    skiq_1pps_source_t pps_source = skiq_1pps_source_unavailable;
 
     SoapySDR_logf(SOAPY_SDR_TRACE, "getTimeSource");
 
     status = skiq_read_1pps_source(card, &pps_source);
     if (status != 0)
     {
-        SoapySDR_logf(SOAPY_SDR_ERROR,
-                      "skiq_read_1pps_source failed, (card %u), status %d",
-                      card, status);
-        throw std::runtime_error("");
+        if (readKernel1PpsSource(pps_source))
+        {
+            SoapySDR_logf(SOAPY_SDR_INFO,
+                          "using kernel 1pps source fallback value %d for card %u",
+                          pps_source, card);
+        }
+        else
+        {
+            SoapySDR_logf(SOAPY_SDR_ERROR,
+                          "skiq_read_1pps_source failed, (card %u), status %d",
+                          card, status);
+            throw std::runtime_error("");
+        }
     }
 
     switch (pps_source)
@@ -2048,10 +2146,19 @@ void SoapySidekiq::setTimeSource(const std::string &source)
     status = skiq_write_1pps_source(card, pps_source);
     if (status != 0)
     {
-        SoapySDR_logf(SOAPY_SDR_ERROR,
-                      "skiq_write_1pps_source %d failed, (card %u), status %d",
-                      pps_source, card, status);
-        throw std::runtime_error("");
+        if (writeKernel1PpsSource(pps_source))
+        {
+            SoapySDR_logf(SOAPY_SDR_INFO,
+                          "using kernel 1pps source write fallback value %d for card %u",
+                          pps_source, card);
+        }
+        else
+        {
+            SoapySDR_logf(SOAPY_SDR_ERROR,
+                          "skiq_write_1pps_source %d failed, (card %u), status %d",
+                          pps_source, card, status);
+            throw std::runtime_error("");
+        }
     }
 
     SoapySDR_logf(SOAPY_SDR_INFO, "1pps source set to %s", source.c_str());
