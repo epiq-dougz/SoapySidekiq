@@ -115,11 +115,17 @@ std::vector<SoapySDR::Kwargs> SoapySidekiq::sidekiq_devices;
 // returns true.
 bool equalsIgnoreCase(const std::string& a, const std::string& b)
 {
-    return std::equal(a.begin(), a.end(), b.begin(), b.end(),
-        [](char a, char b)
-        {
-            return std::tolower(a) == std::tolower(b);
-        });
+    if (a.size() != b.size())
+    {
+        return false;
+    }
+
+    return std::equal(a.begin(), a.end(), b.begin(),
+        [](char lhs, char rhs)
+         {
+            return std::tolower(static_cast<unsigned char>(lhs)) ==
+                   std::tolower(static_cast<unsigned char>(rhs));
+         });
 }
 
 skiq_rx_hdl_t SoapySidekiq::getRxHandle(const size_t channel) const
@@ -311,7 +317,7 @@ SoapySidekiq::SoapySidekiq(const SoapySDR::Kwargs &args)
 
     for (size_t chan = 0; chan < num_rx_channels; chan++)
     {
-        SoapySDR_logf(SOAPY_SDR_INFO, "RX channel %zu maps to handle %u",
+        SoapySDR_logf(SOAPY_SDR_INFO, "Soapy RX channel %zu maps to Sidekiq rx handle %u",
                       chan, getRxHandle(chan));
     }
 
@@ -325,7 +331,7 @@ SoapySidekiq::SoapySidekiq(const SoapySDR::Kwargs &args)
     num_tx_channels = channels;
     for (size_t chan = 0; chan < num_tx_channels; chan++)
     {
-        SoapySDR_logf(SOAPY_SDR_INFO, "TX channel %zu maps to handle %u",
+        SoapySDR_logf(SOAPY_SDR_INFO, "Soapy TX channel %zu maps to Sidekiq tx handle %u",
                       chan, getTxHandle(chan));
     }
 
@@ -544,6 +550,8 @@ size_t SoapySidekiq::getNumChannels(const int dir) const
 
 std::vector<std::string> SoapySidekiq::listAntennas(const int direction, const size_t channel) const {
     std::vector<std::string> antennas;
+    skiq_rf_port_t rf_port = skiq_rf_port_unknown;
+    int status = 0;
 
     SoapySDR_logf(SOAPY_SDR_TRACE, "listAntennas");
     
@@ -555,18 +563,14 @@ std::vector<std::string> SoapySidekiq::listAntennas(const int direction, const s
         }
         else
         {
-            if (this->param.rx_param[channel].num_trx_rf_ports > 0)
+            status = skiq_read_rx_rf_port_for_hdl(card, getRxHandle(channel), &rf_port);
+            if ((status == 0) && (rf_port != skiq_rf_port_unknown))
             {
-                antennas.push_back("TRX");
-
-            }
-            else if (this->param.rx_param[channel].num_fixed_rf_ports > 0)
-            {
-                antennas.push_back("RX");
+                antennas.push_back(skiq_rf_port_string(rf_port));
             }
             else
             {
-                antennas.push_back("NONE");
+                antennas.push_back("UNKNOWN");
             }
         }
     }
@@ -578,18 +582,14 @@ std::vector<std::string> SoapySidekiq::listAntennas(const int direction, const s
         }
         else
         {
-            if (this->param.tx_param[channel].num_trx_rf_ports > 0)
+            status = skiq_read_tx_rf_port_for_hdl(card, getTxHandle(channel), &rf_port);
+            if ((status == 0) && (rf_port != skiq_rf_port_unknown))
             {
-                antennas.push_back("TRX");
-
-            }
-            else if (this->param.tx_param[channel].num_fixed_rf_ports > 0)
-            {
-                antennas.push_back("TX");
+                antennas.push_back(skiq_rf_port_string(rf_port));
             }
             else
             {
-                antennas.push_back("NONE");
+                antennas.push_back("UNKNOWN");
             }
         }
     }
