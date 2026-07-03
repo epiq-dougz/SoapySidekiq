@@ -269,13 +269,14 @@ def do_time(sdr, handle):
     print(f"\t{source}") 
 
     print("setTimeSource")
-    sdr.setTimeSource("1pps_source_external")
-    source = sdr.getTimeSource()
-    print(f"\t{source}") 
-
-    sdr.setTimeSource("1pps_source_internal")
-    source = sdr.getTimeSource()
-    print(f"\t{source}") 
+    # Might fail if not present
+    for requested_source in ("1pps_source_external", "1pps_source_internal"):
+        try:
+            sdr.setTimeSource(requested_source)
+            source = sdr.getTimeSource()
+            print(f"\t{source}")
+        except RuntimeError as ex:
+            print(f"\tskipping {requested_source}: {ex}")
 
     # cannot set source to unavailable
 
@@ -315,7 +316,10 @@ def do_time(sdr, handle):
     print(f"\tsys ts: {source:,}") 
 
     sdr.setHardwareTime(1000000000, "now")
-    sdr.setHardwareTime(1000000000, "1pps")
+    try:
+        sdr.setHardwareTime(1000000000, "1pps")
+    except RuntimeError as ex:
+        print(f"\tskipping 1pps hardware time set: {ex}")
 
 
 

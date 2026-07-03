@@ -57,8 +57,7 @@ def main(cardno, serial, handle,
 #    SoapySDR.setLogLevel(SOAPY_SDR_ERROR)
 
     # get the full scale value for making the tone.
-    rc = sdr.getNativeStreamFormat(SOAPY_SDR_TX, handle)
-    fullscale = int(rc.fullScale)
+    fullscale = np.iinfo(np.int16).max
     SoapySDR.log(SoapySDR.SOAPY_SDR_INFO, f"TX fullscale value: {fullscale:,}")
 
     if (make_float):
