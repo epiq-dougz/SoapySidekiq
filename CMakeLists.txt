@@ -27,10 +27,14 @@ find_package(Sidekiq)
 if (NOT Sidekiq_FOUND)
     message(FATAL_ERROR "Sidekiq development files not found...")
 endif ()
+if(Sidekiq_VERSION VERSION_LESS "4.26.0")
+    message(FATAL_ERROR "Sidekiq SDK 4.26.0 or newer is required")
+endif()
 message(STATUS "SIDEKIQ_SDK_DIR - ${SIDEKIQ_SDK_DIR}")
 message(STATUS "Sidekiq_CONFIG_EXECUTABLE - ${Sidekiq_CONFIG_EXECUTABLE}")
 message(STATUS "Sidekiq_INCLUDE_DIRS - ${Sidekiq_INCLUDE_DIRS}")
 message(STATUS "Sidekiq_LIBRARIES - ${Sidekiq_LIBRARIES}")
+message(STATUS "Sidekiq_RUNTIME_LIBRARY_DIRS - ${Sidekiq_RUNTIME_LIBRARY_DIRS}")
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
@@ -38,12 +42,20 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 if(CMAKE_COMPILER_IS_GNUCXX)
     #disable warnings for unused parameters
     add_definitions(-Wno-unused-parameter)
-
 endif(CMAKE_COMPILER_IS_GNUCXX)
 
 if (APPLE)
    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wc++11-extensions")
 endif(APPLE)
+
+if(Sidekiq_RUNTIME_LIBRARY_DIRS)
+    list(JOIN Sidekiq_RUNTIME_LIBRARY_DIRS ":" SIDEKIQ_INSTALL_RPATH)
+    set(CMAKE_BUILD_RPATH "${SIDEKIQ_INSTALL_RPATH}")
+    set(CMAKE_INSTALL_RPATH "${SIDEKIQ_INSTALL_RPATH}")
+    set(CMAKE_INSTALL_RPATH_USE_LINK_PATH FALSE)
+    set(CMAKE_SKIP_BUILD_RPATH FALSE)
+    set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
+endif()
 
 SOAPY_SDR_MODULE_UTIL(
     TARGET SidekiqSupport

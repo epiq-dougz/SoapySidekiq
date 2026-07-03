@@ -3,6 +3,8 @@
 #  Sidekiq_FOUND - System has Sidekiq
 #  Sidekiq_LIBRARIES - The Sidekiq imported target
 #  Sidekiq_INCLUDE_DIRS - The Sidekiq include directories
+#  Sidekiq_LIBRARY_DIRS - The library directories reported by sidekiq-config
+#  Sidekiq_RUNTIME_LIBRARY_DIRS - Runtime library directories needed by the module
 #  Sidekiq_PKG_LIBRARY_DIRS - The Sidekiq support library directory
 #  Sidekiq_BUILD_CONFIG - The Sidekiq SDK build config selected by sidekiq-config
 
@@ -53,6 +55,8 @@ if(NOT Sidekiq_FOUND)
 
         set(Sidekiq_INCLUDE_DIRS "")
         set(Sidekiq_COMPILE_OPTIONS "")
+        set(Sidekiq_LIBRARY_DIRS "")
+        set(Sidekiq_RUNTIME_LIBRARY_DIRS "")
         foreach(_Sidekiq_CFLAG IN LISTS Sidekiq_CFLAGS_LIST)
             if("${_Sidekiq_CFLAG}" MATCHES "^-I(.+)")
                 list(APPEND Sidekiq_INCLUDE_DIRS "${CMAKE_MATCH_1}")
@@ -60,6 +64,18 @@ if(NOT Sidekiq_FOUND)
                 list(APPEND Sidekiq_COMPILE_OPTIONS "${_Sidekiq_CFLAG}")
             endif()
         endforeach()
+
+        foreach(_Sidekiq_LINK_ITEM IN LISTS Sidekiq_LINK_LIBRARIES)
+            if("${_Sidekiq_LINK_ITEM}" MATCHES "^-L(.+)")
+                list(APPEND Sidekiq_LIBRARY_DIRS "${CMAKE_MATCH_1}")
+                list(APPEND Sidekiq_RUNTIME_LIBRARY_DIRS "${CMAKE_MATCH_1}")
+            elseif("${_Sidekiq_LINK_ITEM}" MATCHES "^-Wl,-rpath,([^,]+)")
+                list(APPEND Sidekiq_RUNTIME_LIBRARY_DIRS "${CMAKE_MATCH_1}")
+            endif()
+        endforeach()
+
+        list(REMOVE_DUPLICATES Sidekiq_LIBRARY_DIRS)
+        list(REMOVE_DUPLICATES Sidekiq_RUNTIME_LIBRARY_DIRS)
 
         set(OTHER_LIBS "")
         set(PKGCONFIG_LIBS "")
@@ -90,7 +106,9 @@ if(NOT Sidekiq_FOUND)
         Sidekiq_CONFIG_EXECUTABLE
         Sidekiq_INCLUDE_DIRS
         Sidekiq_LIBRARIES
+        Sidekiq_LIBRARY_DIRS
         Sidekiq_LINK_LIBRARIES
+        Sidekiq_RUNTIME_LIBRARY_DIRS
         Sidekiq_PKG_LIBRARY_DIRS
         OTHER_LIBS
         PKGCONFIG_LIBS)
