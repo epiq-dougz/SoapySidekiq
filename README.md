@@ -4,18 +4,18 @@ SoapySDR support module for Epiq Solutions Sidekiq SDR devices.
 
 ## Minimum dependencies
 
-- CMake 2.8.12 or newer
+- CMake 3.8 or newer
 - A C++17-capable compiler
 - SoapySDR development files, version 0.4.0 or newer
 - Sidekiq SDK version 4.26.0 or newer
 
 ## Sidekiq SDK discovery
 
-The build looks for the Sidekiq SDK in this order:
+The build locates the Sidekiq SDK in this order:
 
 1. `-DSIDEKIQ_SDK_DIR=/path/to/sdk`
 2. `SIDEKIQ_SDK_DIR` from the environment
-3. `~/sidekiq_sdk_current`
+3. `$HOME/sidekiq_sdk_current`
 
 ## Build
 

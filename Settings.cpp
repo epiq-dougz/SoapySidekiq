@@ -5,6 +5,7 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <stdexcept>
 #include <vector>
 #include <string>
 #include <sidekiq_types.h>
@@ -1300,7 +1301,12 @@ void SoapySidekiq::setFrequency(const int direction, const size_t channel,
                           "skiq_write_rx_LO_freq failed, (card %u, frequency "
                           "%lu), status %d",
                           this->card, requested_frequency, status);
-            throw std::runtime_error("");
+            std::ostringstream oss;
+            oss << "Failed to set RX LO frequency on card " << unsigned(this->card)
+                << ", channel " << channel
+                << " to " << requested_frequency
+                << " Hz (status " << status << ")";
+            throw std::runtime_error(oss.str());
         }
     }
     else if (direction == SOAPY_SDR_TX)
@@ -1318,7 +1324,12 @@ void SoapySidekiq::setFrequency(const int direction, const size_t channel,
                           "skiq_write_tx_LO_freq failed, (card %u, frequency "
                           "%lu), status %d",
                           this->card, requested_frequency, status);
-            throw std::runtime_error("");
+            std::ostringstream oss;
+            oss << "Failed to set TX LO frequency on card " << unsigned(this->card)
+                << ", channel " << channel
+                << " to " << requested_frequency
+                << " Hz (status " << status << ")";
+            throw std::runtime_error(oss.str());
         }
     }
     else
@@ -1443,7 +1454,13 @@ void SoapySidekiq::setSampleRate(const int direction, const size_t channel,
             SoapySDR_logf(SOAPY_SDR_ERROR, "skiq_write_rx_sample_rate_and_bandwidth "
                           "(card %u, sample_rate %u, bandwidth %u, status %d)",
                           this->card, requested_rate, this->rx_bandwidths.at(channel), status);
-            throw std::runtime_error("");
+            std::ostringstream oss;
+            oss << "Failed to set RX sample rate on card " << unsigned(this->card)
+                << ", channel " << channel
+                << " to " << requested_rate
+                << " S/s with bandwidth " << this->rx_bandwidths.at(channel)
+                << " Hz (status " << status << ")";
+            throw std::runtime_error(oss.str());
         }
 
         SoapySDR_logf(SOAPY_SDR_INFO, "set rx sample rate on channel %zu: %u", channel, requested_rate);
@@ -1493,7 +1510,13 @@ void SoapySidekiq::setSampleRate(const int direction, const size_t channel,
                           "skiq_write_tx_sample_rate_and_bandwidth failed, "
                           "(card %u, sample_rate %u, bandwidth %u, status %d)",
                           this->card, requested_rate, tx_bandwidths.at(channel), status);
-            throw std::runtime_error("");
+            std::ostringstream oss;
+            oss << "Failed to set TX sample rate on card " << unsigned(this->card)
+                << ", channel " << channel
+                << " to " << requested_rate
+                << " S/s with bandwidth " << this->tx_bandwidths.at(channel)
+                << " Hz (status " << status << ")";
+            throw std::runtime_error(oss.str());
         }
         SoapySDR_logf(SOAPY_SDR_INFO, "set tx sample rate on channel %zu: %u", channel, requested_rate);
 
@@ -1630,7 +1653,13 @@ void SoapySidekiq::setBandwidth(const int direction, const size_t channel,
             SoapySDR_logf(SOAPY_SDR_ERROR, "skiq_write_rx_sample_rate_and_bandwidth failed "
                           "(card %u, sample_rate %u, bandwidth %u, status %d)",
                           this->card, this->rx_sample_rates.at(channel), requested_bw, status);
-            throw std::runtime_error("");
+            std::ostringstream oss;
+            oss << "Failed to set RX bandwidth on card " << unsigned(this->card)
+                << ", channel " << channel
+                << " to " << requested_bw
+                << " Hz at sample rate " << this->rx_sample_rates.at(channel)
+                << " S/s (status " << status << ")";
+            throw std::runtime_error(oss.str());
         }
 
         SoapySDR_logf(SOAPY_SDR_INFO, "set rx bandwidth on channel %zu to %u", channel, requested_bw);
@@ -1679,7 +1708,13 @@ void SoapySidekiq::setBandwidth(const int direction, const size_t channel,
             SoapySDR_logf(SOAPY_SDR_ERROR, "skiq_write_tx_sample_rate_and_bandwidth failed, "
                           "(card %u, sample_rate %u, bandwidth %u, status %u)",
                           this->card, this->tx_sample_rates.at(channel), requested_bw, status);
-            throw std::runtime_error("");
+            std::ostringstream oss;
+            oss << "Failed to set TX bandwidth on card " << unsigned(this->card)
+                << ", channel " << channel
+                << " to " << requested_bw
+                << " Hz at sample rate " << this->tx_sample_rates.at(channel)
+                << " S/s (status " << status << ")";
+            throw std::runtime_error(oss.str());
         }
 
         SoapySDR_logf(SOAPY_SDR_INFO, "set tx bandwidth on channel %zu to %u", channel, requested_bw);
