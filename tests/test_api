@@ -347,9 +347,9 @@ def do_sensors(sdr, handle):
 def main(cardno, serial, topology, handle, rate, bw, freq, gain, num_blocks, file_name):
 
     if serial is None:
-        args = dict(card = cardno)
+        args = dict(driver="sidekiq", card=cardno)
     else:
-        args = dict(serial = serial)
+        args = dict(driver="sidekiq", serial=serial)
 
     if topology:
         args['topology'] = topology

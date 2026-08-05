@@ -40,23 +40,20 @@ def make_tone(n, make_float, fcen, fs, max_value, phi=0.285):
 
 
 def main(cardno, serial, topology, handle,
-         block_size, rate, bw, freq,
+         tx_block_size, rate, bw, freq,
          attenuation, make_float, offset):
 
     SoapySDR.setLogLevel(SOAPY_SDR_TRACE)
 
     if serial is None:
-        args = dict(card = cardno)
+        args = dict(driver="sidekiq", card=cardno)
     else:
-        args = dict(serial = serial)
+        args = dict(driver="sidekiq", serial=serial)
 
     if topology:
         args['topology'] = topology
 
-    if block_size:
-        args['tx_block_size'] = block_size
-    else:
-        args["tx_block_size"] = "16380"
+    args["tx_block_size"] = tx_block_size
 
     sdr = SoapySDR.Device(args)
 
@@ -111,7 +108,7 @@ def main(cardno, serial, topology, handle,
             rc = sdr.writeStream(tx_stream, [tx_buff], buff_len)
             if rc.ret != buff_len:
                 SoapySDR.log(SoapySDR.SOAPY_SDR_ERROR, 
-                             'TX Error {}: {}'.format(rc.ret, errToStr(rc.ret)))
+                             'TX Error {}: {}'.format(rc.ret, SoapySDR.errToStr(rc.ret)))
         except KeyboardInterrupt:
             break
 
@@ -143,8 +140,8 @@ def parse_command_line_arguments():
                         default=None, help='Topology ID')
     parser.add_argument('--handle', type=int, required=False, dest='handle',
                         default=0, help='Handle [0 or 1]')
-    parser.add_argument('--block-size', required=False, dest='block_size',
-                        default=None, help='Tx block size in words') 
+    parser.add_argument('--tx-block-size', required=False, dest='tx_block_size',
+                        default="16380", help='Tx block size in words') 
     parser.add_argument('-r', type=float, required=False, dest='rate',
                         default=10e6, help='Sample Rate')
     parser.add_argument('-bw', type=float, required=False, dest='bw',
@@ -169,7 +166,7 @@ if __name__ == '__main__':
         pars.serial, 
         pars.topology,
         pars.handle, 
-        pars.block_size, 
+        pars.tx_block_size, 
         pars.rate, 
         pars.bw, 
         pars.freq, 
