@@ -25,17 +25,20 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 find_package(Sidekiq)
 
 if (NOT Sidekiq_FOUND)
-    message(FATAL_ERROR "Sidekiq development files not found...")
+    message(FATAL_ERROR
+        "Sidekiq SDK v4.26 or later not found.  "
+        "Location can be specified with:"
+        "  -DSIDEKIQ_SDK_DIR=/path/to/sidekiq_sdk_current")
 endif ()
-if(Sidekiq_VERSION VERSION_LESS "4.26.0")
-    message(FATAL_ERROR "Sidekiq SDK 4.26.0 or newer is required")
-endif()
+
 message(STATUS "SIDEKIQ_SDK_DIR - ${SIDEKIQ_SDK_DIR}")
-message(STATUS "Sidekiq_CONFIG_EXECUTABLE - ${Sidekiq_CONFIG_EXECUTABLE}")
 message(STATUS "Sidekiq_INCLUDE_DIRS - ${Sidekiq_INCLUDE_DIRS}")
 message(STATUS "Sidekiq_LIBRARIES - ${Sidekiq_LIBRARIES}")
+message(STATUS "Sidekiq_BUILD_CONFIG - ${Sidekiq_BUILD_CONFIG}")
+message(STATUS "Sidekiq_PKG_LIBRARY_DIRS - ${Sidekiq_PKG_LIBRARY_DIRS}")
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
+include_directories(${Sidekiq_INCLUDE_DIRS})
 
 #enable c++11 features
 if(CMAKE_COMPILER_IS_GNUCXX)

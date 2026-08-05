@@ -39,18 +39,26 @@ def make_tone(n, make_float, fcen, fs, max_value, phi=0.285):
         return sig_int16
 
 
-def main(cardno, serial, handle, 
-         rate, bw, freq, 
+def main(cardno, serial, topology, handle,
+         block_size, rate, bw, freq,
          attenuation, make_float, offset):
 
     SoapySDR.setLogLevel(SOAPY_SDR_TRACE)
 
     if serial is None:
-        sdr = SoapySDR.Device({"card": cardno,
-                               "tx_block_size": "16380"})
+        args = dict(card = cardno)
     else:
-        sdr = SoapySDR.Device({"serial": serial,
-                               "tx_block_size": "16380"})
+        args = dict(serial = serial)
+
+    if topology:
+        args['topology'] = topology
+
+    if block_size:
+        args['tx_block_size'] = block_size
+    else:
+        args["tx_block_size"] = "16380"
+
+    sdr = SoapySDR.Device(args)
 
     # get the full scale value for making the tone.
     fullscale = np.iinfo(np.int16).max
@@ -131,8 +139,12 @@ def parse_command_line_arguments():
                         default="0", help='Card number') 
     parser.add_argument('--serial', required=False, dest='serial',
                         default=None, help='Serial number') 
+    parser.add_argument('--topology', required=False, dest='topology',
+                        default=None, help='Topology ID')
     parser.add_argument('--handle', type=int, required=False, dest='handle',
                         default=0, help='Handle [0 or 1]')
+    parser.add_argument('--block-size', required=False, dest='block_size',
+                        default=None, help='Tx block size in words') 
     parser.add_argument('-r', type=float, required=False, dest='rate',
                         default=10e6, help='Sample Rate')
     parser.add_argument('-bw', type=float, required=False, dest='bw',
@@ -155,7 +167,9 @@ if __name__ == '__main__':
 
     main(pars.card, 
         pars.serial, 
+        pars.topology,
         pars.handle, 
+        pars.block_size, 
         pars.rate, 
         pars.bw, 
         pars.freq, 

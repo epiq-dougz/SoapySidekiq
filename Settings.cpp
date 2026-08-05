@@ -1499,6 +1499,7 @@ void SoapySidekiq::setSampleRate(const int direction, const size_t channel,
     {
         skiq_tx_hdl_t tx_hdl = getTxHandle(channel);
         const uint32_t requested_rate = static_cast<uint32_t>(rate);
+	const uint32_t bandwidth = MIN(this->tx_bandwidths.at(channel), requested_rate);
 
         status = skiq_write_tx_sample_rate_and_bandwidth(this->card,
                                                          tx_hdl,
