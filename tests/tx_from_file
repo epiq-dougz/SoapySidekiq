@@ -56,7 +56,6 @@ def main(cardno=0, serial=None, topology=None, handle=0,
     sdr = SoapySDR.Device(args)
 
     SoapySDR.setLogLevel(SOAPY_SDR_TRACE)
-#    SoapySDR.setLogLevel(SOAPY_SDR_ERROR)
 
     if (make_float):
         tx_stream = sdr.setupStream(SOAPY_SDR_TX, SOAPY_SDR_CF32, [handle])

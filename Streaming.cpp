@@ -1,6 +1,7 @@
 #include <cstring>
 #include <unistd.h>
 #include <iostream>
+#include <unordered_map>
 #include <vector>
 #include <string>
 #include <thread>
@@ -10,14 +11,70 @@
 #include <SoapySDR/Formats.hpp>
 #include <sidekiq_types.h>
 
-SoapySidekiq *SoapySidekiq::thisClassAddr = nullptr;
-
 namespace
 {
+std::mutex g_instance_registry_mutex;
+std::unordered_map<uint8_t, SoapySidekiq *> g_instance_registry;
+
 SoapySidekiq::StreamHandle *getStreamHandle(SoapySDR::Stream *stream)
 {
     return reinterpret_cast<SoapySidekiq::StreamHandle *>(stream);
 }
+}
+
+void SoapySidekiq::registerInstance(uint8_t card, SoapySidekiq *instance)
+{
+    std::lock_guard<std::mutex> lock(g_instance_registry_mutex);
+    g_instance_registry[card] = instance;
+}
+
+void SoapySidekiq::unregisterInstance(uint8_t card, SoapySidekiq *instance)
+{
+    std::lock_guard<std::mutex> lock(g_instance_registry_mutex);
+    const auto it = g_instance_registry.find(card);
+    if (it != g_instance_registry.end() && it->second == instance)
+    {
+        g_instance_registry.erase(it);
+    }
+}
+
+SoapySidekiq *SoapySidekiq::getInstanceForCard(uint8_t card)
+{
+    std::lock_guard<std::mutex> lock(g_instance_registry_mutex);
+    const auto it = g_instance_registry.find(card);
+    return (it != g_instance_registry.end()) ? it->second : nullptr;
+}
+
+void SoapySidekiq::tx_complete_callback(int32_t status,
+                                               skiq_tx_block_t *p_data,
+                                               void *p_user)
+{
+    passedStruct *instance = static_cast<passedStruct *>(p_user);
+    if (instance == nullptr || instance->classAddr == nullptr)
+    {
+        SoapySDR_log(SOAPY_SDR_ERROR, "tx_complete callback received invalid user data");
+        delete instance;
+        return;
+    }
+
+    SoapySidekiq *self = instance->classAddr;
+    const uint32_t txIndex = instance->txIndex;
+    self->tx_complete(status, p_data, txIndex);
+    delete instance;
+}
+
+void SoapySidekiq::tx_enabled_callback(uint8_t card, int32_t status)
+{
+    SoapySidekiq *self = getInstanceForCard(card);
+    if (self == nullptr)
+    {
+        SoapySDR_logf(SOAPY_SDR_WARNING,
+                      "tx_enabled callback received for unregistered card %u",
+                      card);
+        return;
+    }
+
+    self->tx_enabled(card, status);
 }
 
 long long SoapySidekiq::convert_timestamp_to_nanos(
@@ -569,7 +626,6 @@ int SoapySidekiq::activateStream(SoapySDR::Stream *stream,
         }
 
         const skiq_tx_hdl_t tx_handle = stream_handle->tx_handle;
-        thisClassAddr = this;
 
         /* set as iq data */
         if (iq_swap == true)

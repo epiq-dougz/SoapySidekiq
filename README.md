@@ -17,12 +17,6 @@ The build locates the Sidekiq SDK in this order:
 2. `SIDEKIQ_SDK_DIR` from the environment
 3. `$HOME/sidekiq_sdk_current`
 
-## Setup
-Install build tools and gnuradio:
-```bash
-sudo apt install build-essential cmake soapysdr-tools libsoapysdr-dev python3-soapysdr
-```
-
 ## Build
 
 Configure and build with CMake:
@@ -35,7 +29,7 @@ cmake --build build
 Install the module with:
 
 ```bash
-cmake --install build
+sudo cmake --install build
 sudo ldconfig
 ```
 

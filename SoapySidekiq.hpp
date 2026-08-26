@@ -4,6 +4,7 @@
 
 #include <atomic>
 #include <condition_variable>
+#include <cstdint>
 #include <mutex>
 #include <stdexcept>
 #include <string>
@@ -345,39 +346,18 @@ class SoapySidekiq : public SoapySDR::Device
         // The registration requires a static function instead of a method so
         // this must be created to be able to register it.
         // This function calls the tx_complete method.
-        static void static_tx_complete_callback(int32_t status, 
-                                                skiq_tx_block_t *p_data, 
-                                                void *p_user)
-        {
-            // cast the passed in void pointer to the structure that was passed.
-            passedStruct  *instance = static_cast<passedStruct*>(p_user);
-
-            // the structure contains the SoapySidekiq instance and the index of the block
-            // that was transmitted
-            SoapySidekiq *self = instance->classAddr;
-            uint32_t txIndex = instance->txIndex;
-
-            // Call the member function
-            self->tx_complete(status, p_data, txIndex);
-
-            delete instance;
-        }
+        static void tx_complete_callback(int32_t status,
+                                                skiq_tx_block_t *p_data,
+                                                void *p_user);
 
         // TX enabled callback static function
         // The registration requires a static function instead of a method so
         // this must be created to be able to register it.
         // This function calls the tx_enabled method.
-        static void static_tx_enabled_callback(uint8_t card, int32_t status) 
-        {
-            // the structure contains the SoapySidekiq instance and the index of the block
-            // that was transmitted
-            SoapySidekiq *self = thisClassAddr;
-
-            // Call the member function
-            self->tx_enabled(card, status);
-        }
-
-        static SoapySidekiq *thisClassAddr;
+        static void tx_enabled_callback(uint8_t card, int32_t status);
+        static void registerInstance(uint8_t card, SoapySidekiq *instance);
+        static void unregisterInstance(uint8_t card, SoapySidekiq *instance);
+        static SoapySidekiq *getInstanceForCard(uint8_t card);
 
     public:
         struct passedStruct

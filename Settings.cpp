@@ -11,6 +11,8 @@
 #include <sidekiq_types.h>
 #include <unistd.h>
 
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+
 /******************************************************************************/
 /** This is the custom logging handler.  If there were custom handling
     required for logging messages, it should be handled here.
@@ -534,32 +536,43 @@ SoapySidekiq::SoapySidekiq(const SoapySDR::Kwargs &args)
     }
 
     // register the transmit complete callback
+    pthread_mutex_init(&space_avail_mutex, nullptr);
+    pthread_cond_init(&space_avail_cond, nullptr);
+    pthread_mutex_init(&tx_enabled_mutex, nullptr);
+    pthread_cond_init(&tx_enabled_cond, nullptr);
+    registerInstance(card, this);
+
     status = skiq_register_tx_complete_callback(card,
-                                        &SoapySidekiq::static_tx_complete_callback);
+                                        &SoapySidekiq::tx_complete_callback);
     if (status != 0)
     {
+        unregisterInstance(card, this);
+        pthread_cond_destroy(&tx_enabled_cond);
+        pthread_mutex_destroy(&tx_enabled_mutex);
+        pthread_cond_destroy(&space_avail_cond);
+        pthread_mutex_destroy(&space_avail_mutex);
         SoapySDR_logf(SOAPY_SDR_ERROR, "skiq_register_tx_complete_callback failed, "
                       "card: %u status: %d",
                       card, status);
         throw std::runtime_error("");
     }
-    pthread_mutex_init(&space_avail_mutex, nullptr);
-    pthread_cond_init(&space_avail_cond, nullptr);
-
 
     // register the transmit enabled callback
     status = skiq_register_tx_enabled_callback(card,
-                                        &SoapySidekiq::static_tx_enabled_callback);
+                                        &SoapySidekiq::tx_enabled_callback);
     if (status != 0)
     {
+        skiq_register_tx_complete_callback(card, nullptr);
+        unregisterInstance(card, this);
+        pthread_cond_destroy(&tx_enabled_cond);
+        pthread_mutex_destroy(&tx_enabled_mutex);
+        pthread_cond_destroy(&space_avail_cond);
+        pthread_mutex_destroy(&space_avail_mutex);
         SoapySDR_logf(SOAPY_SDR_ERROR, "skiq_register_tx_enabled_callback failed, "
                       "card: %u status: %d",
                       card, status);
         throw std::runtime_error("");
     }
-
-    pthread_mutex_init(&tx_enabled_mutex, nullptr);
-    pthread_cond_init(&tx_enabled_cond, nullptr);
 
     SoapySDR_logf(SOAPY_SDR_TRACE, "leaving constructor", card);
 }
@@ -568,6 +581,14 @@ SoapySidekiq::SoapySidekiq(const SoapySDR::Kwargs &args)
 SoapySidekiq::~SoapySidekiq(void)
 {
     SoapySDR_logf(SOAPY_SDR_TRACE, "In destructor", card);
+    unregisterInstance(card, this);
+    skiq_register_tx_enabled_callback(card, nullptr);
+    skiq_register_tx_complete_callback(card, nullptr);
+
+    pthread_cond_destroy(&tx_enabled_cond);
+    pthread_mutex_destroy(&tx_enabled_mutex);
+    pthread_cond_destroy(&space_avail_cond);
+    pthread_mutex_destroy(&space_avail_mutex);
 
     if (NULL != p_tx_status)
     {
@@ -1444,21 +1465,22 @@ void SoapySidekiq::setSampleRate(const int direction, const size_t channel,
     {
         skiq_rx_hdl_t rx_hdl = getRxHandle(channel);
         const uint32_t requested_rate = static_cast<uint32_t>(rate);
+	const uint32_t bandwidth = MIN(this->rx_bandwidths.at(channel), requested_rate);
 
         status = skiq_write_rx_sample_rate_and_bandwidth(this->card,
                                                          rx_hdl,
                                                          requested_rate,
-                                                         this->rx_bandwidths.at(channel));
+                                                         bandwidth);
         if (status != 0)
         {
             SoapySDR_logf(SOAPY_SDR_ERROR, "skiq_write_rx_sample_rate_and_bandwidth "
                           "(card %u, sample_rate %u, bandwidth %u, status %d)",
-                          this->card, requested_rate, this->rx_bandwidths.at(channel), status);
+                          this->card, requested_rate, bandwidth, status);
             std::ostringstream oss;
             oss << "Failed to set RX sample rate on card " << unsigned(this->card)
                 << ", channel " << channel
                 << " to " << requested_rate
-                << " S/s with bandwidth " << this->rx_bandwidths.at(channel)
+                << " S/s with bandwidth " << bandwidth
                 << " Hz (status " << status << ")";
             throw std::runtime_error(oss.str());
         }
@@ -1504,7 +1526,7 @@ void SoapySidekiq::setSampleRate(const int direction, const size_t channel,
         status = skiq_write_tx_sample_rate_and_bandwidth(this->card,
                                                          tx_hdl,
                                                          requested_rate,
-                                                         this->tx_bandwidths.at(channel));
+                                                         bandwidth);
         if (status != 0)
         {
             SoapySDR_logf(SOAPY_SDR_ERROR,
@@ -1515,7 +1537,7 @@ void SoapySidekiq::setSampleRate(const int direction, const size_t channel,
             oss << "Failed to set TX sample rate on card " << unsigned(this->card)
                 << ", channel " << channel
                 << " to " << requested_rate
-                << " S/s with bandwidth " << this->tx_bandwidths.at(channel)
+                << " S/s with bandwidth " << bandwidth
                 << " Hz (status " << status << ")";
             throw std::runtime_error(oss.str());
         }
